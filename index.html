@@ -1,1008 +1,613 @@
-import React, { useState, useEffect } from 'react';
-import { Star, Users, Trophy, Calendar, Plus, Vote, Film, Search, Award, Target, Shuffle } from 'lucide-react';
-
-const MovieLeagueApp = () => {
-  const [currentView, setCurrentView] = useState('splash');
-  const [selectedLeague, setSelectedLeague] = useState(null);
-  const [userVotes, setUserVotes] = useState({});
-  const [draftSelections, setDraftSelections] = useState({});
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
-  
-  // TMDb API configuration
-  const TMDB_API_KEY = 'demo_key';
-  const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
-  const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p/w500';
-
-  // Mock leagues with both types
-  const mockLeagues = [
-    {
-      id: 1,
-      name: "Film Buffs United",
-      type: "movie-league",
-      members: 8,
-      currentRound: "Best Sci-Fi Under 2 Hours",
-      totalRounds: 8,
-      completedRounds: 3,
-      status: "voting",
-      season: 3,
-      description: "Serious movie discussion with cinema enthusiasts"
-    },
-    {
-      id: 2,
-      name: "Weekend Movie Night",
-      type: "movie-league", 
-      members: 6,
-      currentRound: "Hidden Gems of the 90s",
-      totalRounds: 6,
-      completedRounds: 1,
-      status: "submissions",
-      season: 1,
-      description: "Casual movie lovers finding great films together"
-    },
-    {
-      id: 3,
-      name: "Ultimate Movie Draft 2024",
-      type: "movie-draft",
-      members: 10,
-      draftTheme: "Greatest Films of All Time",
-      draftRound: 3,
-      totalPicks: 5,
-      status: "drafting",
-      season: 1,
-      description: "Snake draft - build the ultimate movie collection"
-    },
-    {
-      id: 4,
-      name: "Horror Draft League", 
-      type: "movie-draft",
-      members: 8,
-      draftTheme: "Best Horror Movies Ever",
-      draftRound: 5,
-      totalPicks: 5,
-      status: "voting-teams",
-      season: 2,
-      description: "Draft the scariest movie lineup"
-    },
-    {
-      id: 5,
-      name: "Classic Cinema Club",
-      type: "movie-league",
-      members: 15,
-      currentRound: "Films Noir of the 40s",
-      totalRounds: 10,
-      completedRounds: 10,
-      status: "completed",
-      season: 5,
-      description: "Celebrating the golden age of cinema"
-    }
-  ];
-
-  // Mock movies for Movie League rounds
-  const mockRoundMovies = [
-    { 
-      id: 335984, 
-      title: "Blade Runner 2049", 
-      release_date: "2017-10-04", 
-      vote_average: 8.0, 
-      poster_path: "/gajva2L0rPYkEWjzgFlBXCAVBE5.jpg",
-      overview: "Thirty years after the events of the first film, a new blade runner discovers a long-buried secret...",
-      submittedBy: "hidden" 
-    },
-    { 
-      id: 329865, 
-      title: "Arrival", 
-      release_date: "2016-11-10", 
-      vote_average: 7.9, 
-      poster_path: "/yIWUMt2QHrqqu4PIhobqwo7RVg4.jpg",
-      overview: "Taking place after alien crafts land around the world, an expert linguist is recruited...",
-      submittedBy: "hidden" 
-    },
-    { 
-      id: 264660, 
-      title: "Ex Machina", 
-      release_date: "2015-01-21", 
-      vote_average: 7.7, 
-      poster_path: "/btTdmkgIvOi0FFip1sPuZI2oQG6.jpg",
-      overview: "Caleb, a coder at the world's largest internet company, wins a competition to spend a week...",
-      submittedBy: "hidden" 
-    },
-    { 
-      id: 152601, 
-      title: "Her", 
-      release_date: "2013-12-18", 
-      vote_average: 8.0, 
-      poster_path: "/lEIaL12hSkqqe83kgADkbUqEnvk.jpg",
-      overview: "In a near future, a lonely writer develops an unlikely relationship with an operating system...",
-      submittedBy: "hidden" 
-    }
-  ];
-
-  // Mock draft teams
-  const mockDraftTeams = [
-    {
-      userId: "user1",
-      userName: "Alex",
-      picks: [
-        { id: 238, title: "The Godfather", release_date: "1972-03-14", vote_average: 8.7, poster_path: "/3bhkrj58Vtu7enYsRolD1fZdja1.jpg" },
-        { id: 680, title: "Pulp Fiction", release_date: "1994-09-10", vote_average: 8.5, poster_path: "/d5iIlFn5s0ImszYzBPb8JPIfbXD.jpg" },
-        { id: 155, title: "The Dark Knight", release_date: "2008-07-16", vote_average: 8.5, poster_path: "/qJ2tW6WMUDux911r6m7haRef0WH.jpg" }
-      ]
-    },
-    {
-      userId: "user2", 
-      userName: "Jordan",
-      picks: [
-        { id: 278, title: "The Shawshank Redemption", release_date: "1994-09-23", vote_average: 8.7, poster_path: "/q6y0Go1tsGEsmtFryDOJo3dEmqu.jpg" },
-        { id: 372058, title: "Your Name", release_date: "2016-08-26", vote_average: 8.2, poster_path: "/xq1Ugd62d23K2knRUx6xxuALTZB.jpg" }
-      ]
-    }
-  ];
-
-  const availableDraftMovies = [
-    { id: 389, title: "12 Angry Men", release_date: "1957-04-10", vote_average: 8.5, poster_path: "/ow3wq89wM8qd5X7hWKxiRfsFf9C.jpg" },
-    { id: 129, title: "Spirited Away", release_date: "2001-07-20", vote_average: 8.6, poster_path: "/39wmItIWsg5sZMyRUHLkWBcuVCM.jpg" },
-    { id: 19404, title: "Dilwale Dulhania Le Jayenge", release_date: "1995-10-20", vote_average: 8.1, poster_path: "/2CAL2433ZeIihfX1Hb2139CX0pW.jpg" }
-  ];
-
-  // Calculate total points assigned for Movie League voting
-  const getTotalPointsAssigned = () => {
-    return Object.values(userVotes).reduce((sum, points) => sum + (points || 0), 0);
-  };
-
-  // Handle point allocation for Movie League
-  const handlePointAllocation = (movieId, points) => {
-    const currentTotal = getTotalPointsAssigned();
-    const currentMoviePoints = userVotes[movieId] || 0;
-    const newTotal = currentTotal - currentMoviePoints + points;
-    
-    if (newTotal <= 10) {
-      setUserVotes(prev => ({ ...prev, [movieId]: points }));
-    }
-  };
-
-  // Handle team voting for Movie Draft
-  const handleTeamVote = (teamId, points) => {
-    const currentTotal = Object.values(userVotes).reduce((sum, pts) => sum + (pts || 0), 0);
-    const currentTeamPoints = userVotes[teamId] || 0;
-    const newTotal = currentTotal - currentTeamPoints + points;
-    
-    if (newTotal <= 10) {
-      setUserVotes(prev => ({ ...prev, [teamId]: points }));
-    }
-  };
-
-  const searchMovies = async (query) => {
-    if (!query.trim()) return;
-    setIsLoading(true);
-    setTimeout(() => {
-      const simulatedResults = mockRoundMovies.filter(movie => 
-        movie.title.toLowerCase().includes(query.toLowerCase())
-      );
-      setSearchResults(simulatedResults);
-      setIsLoading(false);
-    }, 500);
-  };
-
-  const getLeagueStatusColor = (league) => {
-    if (league.type === 'movie-league') {
-      switch(league.status) {
-        case 'voting': return 'bg-green-100 text-green-800';
-        case 'submissions': return 'bg-yellow-100 text-yellow-800';
-        case 'completed': return 'bg-blue-100 text-blue-800';
-        default: return 'bg-gray-100 text-gray-800';
-      }
-    } else {
-      switch(league.status) {
-        case 'drafting': return 'bg-purple-100 text-purple-800';
-        case 'voting-teams': return 'bg-green-100 text-green-800';
-        case 'completed': return 'bg-blue-100 text-blue-800';
-        default: return 'bg-gray-100 text-gray-800';
-      }
-    }
-  };
-
-  const getLeagueStatusText = (league) => {
-    if (league.type === 'movie-league') {
-      switch(league.status) {
-        case 'voting': return 'Voting Open';
-        case 'submissions': return 'Submissions Open';
-        case 'completed': return 'Season Complete';
-        default: return league.status;
-      }
-    } else {
-      switch(league.status) {
-        case 'drafting': return 'Draft in Progress';
-        case 'voting-teams': return 'Vote on Teams';
-        case 'completed': return 'Draft Complete';
-        default: return league.status;
-      }
-    }
-  };
-
-  const SplashView = () => (
-    <div className="space-y-8">
-      <div className="text-center py-12">
-        <Film className="mx-auto h-20 w-20 text-blue-600 mb-6" />
-        <h1 className="text-5xl font-bold text-gray-900 mb-4">Movie League</h1>
-        <p className="text-xl text-gray-600 mb-8">Compete with friends through movie rounds and drafts</p>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Movie League</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.263.1/umd/lucide.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
         
-        <div className="flex justify-center gap-4">
-          <button 
-            onClick={() => setCurrentView('create-league')}
-            className="bg-blue-600 text-white px-8 py-4 rounded-lg hover:bg-blue-700 flex items-center gap-2 text-lg font-semibold"
-          >
-            <Plus className="h-5 w-5" />
-            Create New League
-          </button>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-lg shadow-lg p-8">
-        <h2 className="text-3xl font-bold text-center mb-8">Your Leagues</h2>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background-color: #f9fafb;
+            min-height: 100vh;
+        }
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {mockLeagues.map(league => (
-            <div 
-              key={league.id} 
-              className="border border-gray-200 rounded-lg p-6 hover:shadow-lg transition-shadow cursor-pointer hover:border-blue-300"
-              onClick={() => { setSelectedLeague(league); setCurrentView('league'); }}
-            >
-              <div className="flex justify-between items-start mb-4">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
-                    {league.type === 'movie-league' ? (
-                      <Target className="h-5 w-5 text-blue-600" />
-                    ) : (
-                      <Shuffle className="h-5 w-5 text-purple-600" />
-                    )}
-                    <span className="text-sm font-medium text-gray-500 uppercase">
-                      {league.type === 'movie-league' ? 'Movie League' : 'Movie Draft'}
-                    </span>
-                  </div>
-                  <h3 className="text-xl font-bold text-gray-900 mb-2">{league.name}</h3>
-                  <p className="text-gray-600 text-sm mb-3">{league.description}</p>
-                  
-                  {league.type === 'movie-league' ? (
-                    <p className="text-gray-700 font-medium">Current: {league.currentRound}</p>
-                  ) : (
-                    <p className="text-gray-700 font-medium">Theme: {league.draftTheme}</p>
-                  )}
-                </div>
+        .container {
+            max-width: 1024px;
+            margin: 0 auto;
+            padding: 2rem 1rem;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .btn-primary {
+            background-color: #2563eb;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background-color: #1d4ed8;
+        }
+        
+        .btn-secondary {
+            background-color: #6b7280;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background-color: #4b5563;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-bottom: 1.5rem;
+        }
+        
+        .league-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        .league-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .league-card:hover {
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            border-color: #3b82f6;
+        }
+        
+        .league-type {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: #6b7280;
+            font-size: 0.875rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            margin-bottom: 0.5rem;
+        }
+        
+        .league-title {
+            font-size: 1.25rem;
+            font-weight: bold;
+            color: #111827;
+            margin-bottom: 0.5rem;
+        }
+        
+        .league-description {
+            color: #6b7280;
+            font-size: 0.875rem;
+            margin-bottom: 0.75rem;
+        }
+        
+        .league-current {
+            color: #374151;
+            font-weight: 500;
+            margin-bottom: 1rem;
+        }
+        
+        .league-status {
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+        
+        .status-voting {
+            background-color: #dcfce7;
+            color: #166534;
+        }
+        
+        .status-submissions {
+            background-color: #fef3c7;
+            color: #92400e;
+        }
+        
+        .status-completed {
+            background-color: #dbeafe;
+            color: #1e40af;
+        }
+        
+        .status-drafting {
+            background-color: #f3e8ff;
+            color: #7c3aed;
+        }
+        
+        .league-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: #6b7280;
+            font-size: 0.875rem;
+            margin-top: 1rem;
+        }
+        
+        .splash-header {
+            text-align: center;
+            padding: 3rem 0;
+        }
+        
+        .splash-icon {
+            width: 5rem;
+            height: 5rem;
+            color: #2563eb;
+            margin: 0 auto 1.5rem;
+        }
+        
+        .splash-title {
+            font-size: 3rem;
+            font-weight: bold;
+            color: #111827;
+            margin-bottom: 1rem;
+        }
+        
+        .splash-subtitle {
+            font-size: 1.25rem;
+            color: #6b7280;
+            margin-bottom: 2rem;
+        }
+        
+        .back-link {
+            color: #2563eb;
+            text-decoration: none;
+            margin-bottom: 0.5rem;
+            display: inline-block;
+        }
+        
+        .back-link:hover {
+            color: #1d4ed8;
+        }
+        
+        .action-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+        
+        .action-card {
+            text-align: center;
+            color: white;
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .action-card:hover {
+            transform: translateY(-2px);
+        }
+        
+        .action-icon {
+            width: 2rem;
+            height: 2rem;
+            margin: 0 auto 0.5rem;
+        }
+        
+        .action-title {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+        
+        .action-subtitle {
+            font-size: 0.875rem;
+            opacity: 0.9;
+        }
+        
+        .bg-blue { background-color: #2563eb; }
+        .bg-green { background-color: #059669; }
+        .bg-purple { background-color: #7c3aed; }
+        .bg-gray { background-color: #6b7280; }
+        
+        .bg-blue:hover { background-color: #1d4ed8; }
+        .bg-green:hover { background-color: #047857; }
+        .bg-purple:hover { background-color: #6d28d9; }
+        .bg-gray:hover { background-color: #4b5563; }
+        
+        .game-types {
+            background-color: #f9fafb;
+            border-radius: 0.5rem;
+            padding: 2rem;
+            margin-top: 2rem;
+        }
+        
+        .game-types h3 {
+            text-align: center;
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-bottom: 1.5rem;
+        }
+        
+        .game-type {
+            text-align: center;
+        }
+        
+        .game-type-icon {
+            width: 3rem;
+            height: 3rem;
+            margin: 0 auto 1rem;
+            color: #2563eb;
+        }
+        
+        .game-type h4 {
+            font-size: 1.25rem;
+            font-weight: bold;
+            margin-bottom: 0.75rem;
+            color: #1e3a8a;
+        }
+        
+        .game-type p {
+            color: #6b7280;
+            margin-bottom: 1rem;
+        }
+        
+        .game-type ul {
+            list-style: none;
+            color: #6b7280;
+            font-size: 0.875rem;
+        }
+        
+        .purple-icon { color: #7c3aed; }
+        .purple-title { color: #581c87; }
+        
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1.5rem;
+        }
+        
+        .page-title {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #111827;
+        }
+        
+        .page-subtitle {
+            color: #6b7280;
+            margin-bottom: 0.5rem;
+        }
+        
+        @media (max-width: 768px) {
+            .page-header {
+                flex-direction: column;
+                gap: 1rem;
+            }
+            
+            .splash-title {
+                font-size: 2rem;
+            }
+            
+            .league-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .action-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Splash View -->
+        <div id="splash-view">
+            <div class="splash-header">
+                <svg class="splash-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 4V2a1 1 0 011-1h8a1 1 0 011 1v2h4a1 1 0 110 2h-1v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6H3a1 1 0 110-2h4zM9 4h6V3H9v1zm0 4a1 1 0 112 0v8a1 1 0 11-2 0V8zm4 0a1 1 0 112 0v8a1 1 0 11-2 0V8z"/>
+                </svg>
+                <h1 class="splash-title">Movie League</h1>
+                <p class="splash-subtitle">Compete with friends through movie rounds and drafts</p>
                 
-                <span className={`px-3 py-1 rounded-full text-sm font-medium ml-4 ${getLeagueStatusColor(league)}`}>
-                  {getLeagueStatusText(league)}
-                </span>
-              </div>
-              
-              <div className="flex items-center justify-between text-sm text-gray-500">
-                <span className="flex items-center gap-1">
-                  <Users className="h-4 w-4" />
-                  {league.members} members
-                </span>
-                {league.type === 'movie-league' ? (
-                  <span>Round {league.completedRounds + 1}/{league.totalRounds}</span>
-                ) : (
-                  <span>{league.status === 'drafting' ? `Round ${league.draftRound}/${league.totalPicks}` : 'Vote on Teams'}</span>
-                )}
-              </div>
+                <button class="btn btn-primary" onclick="showCreateLeague()">
+                    <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 5v14m7-7H5"/>
+                    </svg>
+                    Create New League
+                </button>
             </div>
-          ))}
-        </div>
-      </div>
 
-      <div className="bg-gray-50 rounded-lg p-8">
-        <h3 className="text-2xl font-bold text-center mb-6">Two Ways to Play</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div className="text-center">
-            <Target className="mx-auto h-12 w-12 text-blue-600 mb-4" />
-            <h4 className="font-bold text-xl mb-3 text-blue-900">Movie League</h4>
-            <p className="text-gray-600 mb-4">Theme-based rounds where everyone submits movies, then votes on the best submission. Multiple rounds determine the season winner.</p>
-            <div className="text-sm text-gray-500">
-              <div>• Anonymous submissions</div>
-              <div>• Ranked choice voting</div>
-              <div>• Season-long competition</div>
+            <div class="card">
+                <h2 style="font-size: 1.875rem; font-weight: bold; text-align: center; margin-bottom: 2rem;">Your Leagues</h2>
+                
+                <div class="league-grid">
+                    <div class="league-card" onclick="showLeague('movie-league')">
+                        <div class="league-type">
+                            <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
+                                <circle cx="12" cy="12" r="10"/>
+                                <circle cx="12" cy="12" r="3"/>
+                            </svg>
+                            Movie League
+                        </div>
+                        <h3 class="league-title">Film Buffs United</h3>
+                        <p class="league-description">Serious movie discussion with cinema enthusiasts</p>
+                        <p class="league-current">Current: Best Sci-Fi Under 2 Hours</p>
+                        
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div class="league-meta">
+                                <span>👥 8 members</span>
+                                <span>Round 4/8</span>
+                            </div>
+                            <span class="league-status status-voting">Voting Open</span>
+                        </div>
+                    </div>
+
+                    <div class="league-card" onclick="showLeague('movie-draft')">
+                        <div class="league-type">
+                            <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z"/>
+                                <path d="M8 5a2 2 0 012-2h4a2 2 0 012 2v2H8V5z"/>
+                            </svg>
+                            Movie Draft
+                        </div>
+                        <h3 class="league-title">Ultimate Movie Draft 2024</h3>
+                        <p class="league-description">Snake draft - build the ultimate movie collection</p>
+                        <p class="league-current">Theme: Greatest Films of All Time</p>
+                        
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div class="league-meta">
+                                <span>👥 10 members</span>
+                                <span>Round 3/5</span>
+                            </div>
+                            <span class="league-status status-drafting">Draft in Progress</span>
+                        </div>
+                    </div>
+                </div>
             </div>
-          </div>
-          <div className="text-center">
-            <Shuffle className="mx-auto h-12 w-12 text-purple-600 mb-4" />
-            <h4 className="font-bold text-xl mb-3 text-purple-900">Movie Draft</h4>
-            <p className="text-gray-600 mb-4">Snake draft where players take turns picking movies for their team. Once complete, everyone votes on the best collection.</p>
-            <div className="text-sm text-gray-500">
-              <div>• Turn-based drafting</div>
-              <div>• No duplicate picks</div>
-              <div>• Team vs team voting</div>
+
+            <div class="game-types">
+                <h3>Two Ways to Play</h3>
+                <div class="league-grid">
+                    <div class="game-type">
+                        <svg class="game-type-icon" fill="currentColor" viewBox="0 0 24 24">
+                            <circle cx="12" cy="12" r="10"/>
+                            <circle cx="12" cy="12" r="3"/>
+                        </svg>
+                        <h4>Movie League</h4>
+                        <p>Theme-based rounds where everyone submits movies, then votes on the best submission. Multiple rounds determine the season winner.</p>
+                        <ul>
+                            <li>• Anonymous submissions</li>
+                            <li>• Ranked choice voting</li>
+                            <li>• Season-long competition</li>
+                        </ul>
+                    </div>
+                    <div class="game-type">
+                        <svg class="game-type-icon purple-icon" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z"/>
+                            <path d="M8 5a2 2 0 012-2h4a2 2 0 012 2v2H8V5z"/>
+                        </svg>
+                        <h4 class="purple-title">Movie Draft</h4>
+                        <p>Snake draft where players take turns picking movies for their team. Once complete, everyone votes on the best collection.</p>
+                        <ul>
+                            <li>• Turn-based drafting</li>
+                            <li>• No duplicate picks</li>
+                            <li>• Team vs team voting</li>
+                        </ul>
+                    </div>
+                </div>
             </div>
-          </div>
         </div>
-      </div>
+
+        <!-- League View -->
+        <div id="league-view" class="hidden">
+            <div class="page-header">
+                <div>
+                    <a href="#" class="back-link" onclick="showSplash()">← Back to All Leagues</a>
+                    <div class="league-type">
+                        <svg width="24" height="24" fill="currentColor" viewBox="0 0 24 24">
+                            <circle cx="12" cy="12" r="10"/>
+                            <circle cx="12" cy="12" r="3"/>
+                        </svg>
+                        <span id="league-type-text">Movie League</span>
+                    </div>
+                    <h1 class="page-title" id="league-name">Film Buffs United</h1>
+                    <p class="page-subtitle" id="league-description">Serious movie discussion with cinema enthusiasts</p>
+                    <p style="color: #6b7280;">Season 3</p>
+                </div>
+                <div style="text-align: right;">
+                    <div style="font-size: 0.875rem; color: #6b7280;">Current Round</div>
+                    <div style="font-size: 1.125rem; font-weight: 600;" id="current-round">Best Sci-Fi Under 2 Hours</div>
+                    <div style="font-size: 0.875rem; color: #6b7280;">Round 4/8</div>
+                    <span class="league-status status-voting" style="margin-top: 0.5rem;">Voting Open</span>
+                </div>
+            </div>
+
+            <div class="action-grid" id="league-actions">
+                <!-- Actions will be populated by JavaScript -->
+            </div>
+        </div>
+
+        <!-- Create League View -->
+        <div id="create-league-view" class="hidden">
+            <div>
+                <a href="#" class="back-link" onclick="showSplash()">← Back to All Leagues</a>
+                <h1 class="page-title">Create New League</h1>
+            </div>
+
+            <div class="league-grid">
+                <div class="card" style="border: 2px solid #bfdbfe;">
+                    <div style="text-align: center;">
+                        <svg style="width: 4rem; height: 4rem; color: #2563eb; margin: 0 auto 1rem;" fill="currentColor" viewBox="0 0 24 24">
+                            <circle cx="12" cy="12" r="10"/>
+                            <circle cx="12" cy="12" r="3"/>
+                        </svg>
+                        <h3 style="font-size: 1.5rem; font-weight: bold; color: #1e3a8a; margin-bottom: 1rem;">Movie League</h3>
+                        <p style="color: #6b7280; margin-bottom: 1.5rem;">Theme-based rounds where everyone submits movies anonymously, then votes on the best submissions.</p>
+                        
+                        <div style="text-align: left; space-y: 1rem;">
+                            <div style="margin-bottom: 1rem;">
+                                <label style="display: block; font-size: 0.875rem; font-weight: 500; color: #374151; margin-bottom: 0.25rem;">League Name</label>
+                                <input type="text" placeholder="Enter league name..." style="width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.375rem;">
+                            </div>
+                            <div style="margin-bottom: 1rem;">
+                                <label style="display: block; font-size: 0.875rem; font-weight: 500; color: #374151; margin-bottom: 0.25rem;">Description</label>
+                                <textarea placeholder="Describe your league..." style="width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.375rem; height: 4rem; resize: none;"></textarea>
+                            </div>
+                            <div style="margin-bottom: 1rem;">
+                                <label style="display: block; font-size: 0.875rem; font-weight: 500; color: #374151; margin-bottom: 0.25rem;">First Round Theme</label>
+                                <input type="text" placeholder="e.g., Best Action Movie Under 2 Hours" style="width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.375rem;">
+                            </div>
+                            <div style="margin-bottom: 1rem;">
+                                <label style="display: block; font-size: 0.875rem; font-weight: 500; color: #374151; margin-bottom: 0.25rem;">Total Rounds</label>
+                                <select style="width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.375rem;">
+                                    <option>6 rounds</option>
+                                    <option>8 rounds</option>
+                                    <option>10 rounds</option>
+                                    <option>12 rounds</option>
+                                </select>
+                            </div>
+                            <button class="btn btn-primary" style="width: 100%;" onclick="alert('League created! (Demo)')">
+                                Create Movie League
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card" style="border: 2px solid #c4b5fd;">
+                    <div style="text-align: center;">
+                        <svg style="width: 4rem; height: 4rem; color: #7c3aed; margin: 0 auto 1rem;" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z"/>
+                            <path d="M8 5a2 2 0 012-2h4a2 2 0 012 2v2H8V5z"/>
+                        </svg>
+                        <h3 style="font-size: 1.5rem; font-weight: bold; color: #581c87; margin-bottom: 1rem;">Movie Draft</h3>
+                        <p style="color: #6b7280; margin-bottom: 1.5rem;">Snake draft where players take turns picking movies for their collection. No duplicates allowed!</p>
+                        
+                        <div style="text-align: left;">
+                            <div style="margin-bottom: 1rem;">
+                                <label style="display: block; font-size: 0.875rem; font-weight: 500; color: #374151; margin-bottom: 0.25rem;">League Name</label>
+                                <input type="text" placeholder="Enter league name..." style="width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.375rem;">
+                            </div>
+                            <div style="margin-bottom: 1rem;">
+                                <label style="display: block; font-size: 0.875rem; font-weight: 500; color: #374151; margin-bottom: 0.25rem;">Description</label>
+                                <textarea placeholder="Describe your draft..." style="width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.375rem; height: 4rem; resize: none;"></textarea>
+                            </div>
+                            <div style="margin-bottom: 1rem;">
+                                <label style="display: block; font-size: 0.875rem; font-weight: 500; color: #374151; margin-bottom: 0.25rem;">Draft Theme</label>
+                                <input type="text" placeholder="e.g., Greatest Films of All Time" style="width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.375rem;">
+                            </div>
+                            <div style="margin-bottom: 1rem;">
+                                <label style="display: block; font-size: 0.875rem; font-weight: 500; color: #374151; margin-bottom: 0.25rem;">Movies per Team</label>
+                                <select style="width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.375rem;">
+                                    <option>3 movies</option>
+                                    <option>5 movies</option>
+                                    <option>7 movies</option>
+                                    <option>10 movies</option>
+                                </select>
+                            </div>
+                            <button class="btn" style="width: 100%; background-color: #7c3aed; color: white;" onclick="alert('Draft created! (Demo)')">
+                                Create Movie Draft
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
-  );
 
-  const LeagueView = () => (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <button 
-            onClick={() => setCurrentView('splash')}
-            className="text-blue-600 hover:text-blue-800 mb-2"
-          >
-            ← Back to All Leagues
-          </button>
-          <div className="flex items-center gap-2 mb-2">
-            {selectedLeague?.type === 'movie-league' ? (
-              <Target className="h-6 w-6 text-blue-600" />
-            ) : (
-              <Shuffle className="h-6 w-6 text-purple-600" />
-            )}
-            <span className="text-sm font-medium text-gray-500 uppercase">
-              {selectedLeague?.type === 'movie-league' ? 'Movie League' : 'Movie Draft'}
-            </span>
-          </div>
-          <h1 className="text-3xl font-bold">{selectedLeague?.name}</h1>
-          <p className="text-gray-600 mb-2">{selectedLeague?.description}</p>
-          <p className="text-gray-500">Season {selectedLeague?.season}</p>
-        </div>
-        <div className="text-right">
-          {selectedLeague?.type === 'movie-league' ? (
-            <>
-              <div className="text-sm text-gray-500">Current Round</div>
-              <div className="text-lg font-semibold">{selectedLeague?.currentRound}</div>
-              <div className="text-sm text-gray-500">Round {selectedLeague?.completedRounds + 1}/{selectedLeague?.totalRounds}</div>
-            </>
-          ) : (
-            <>
-              <div className="text-sm text-gray-500">Draft Theme</div>
-              <div className="text-lg font-semibold">{selectedLeague?.draftTheme}</div>
-              <div className="text-sm text-gray-500">
-                {selectedLeague?.status === 'drafting' ? `Round ${selectedLeague?.draftRound}/${selectedLeague?.totalPicks}` : 'Draft Complete'}
-              </div>
-            </>
-          )}
-          <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium mt-2 ${getLeagueStatusColor(selectedLeague)}`}>
-            {getLeagueStatusText(selectedLeague)}
-          </span>
-        </div>
-      </div>
+    <script>
+        function showSplash() {
+            document.getElementById('splash-view').classList.remove('hidden');
+            document.getElementById('league-view').classList.add('hidden');
+            document.getElementById('create-league-view').classList.add('hidden');
+        }
 
-      {selectedLeague?.type === 'movie-league' ? (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <button 
-            onClick={() => setCurrentView('submit')}
-            className="bg-blue-600 text-white p-6 rounded-lg hover:bg-blue-700 flex flex-col items-center"
-          >
-            <Plus className="h-8 w-8 mb-2" />
-            <span className="font-semibold">Submit Movie</span>
-            <span className="text-sm opacity-90">Add to current round</span>
-          </button>
-          
-          <button 
-            onClick={() => setCurrentView('voting')}
-            className="bg-green-600 text-white p-6 rounded-lg hover:bg-green-700 flex flex-col items-center"
-          >
-            <Vote className="h-8 w-8 mb-2" />
-            <span className="font-semibold">Vote on Movies</span>
-            <span className="text-sm opacity-90">{mockRoundMovies.length} submissions</span>
-          </button>
-          
-          <button className="bg-gray-600 text-white p-6 rounded-lg hover:bg-gray-700 flex flex-col items-center">
-            <Trophy className="h-8 w-8 mb-2" />
-            <span className="font-semibold">Leaderboard</span>
-            <span className="text-sm opacity-90">Season standings</span>
-          </button>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <button 
-            onClick={() => setCurrentView('draft-board')}
-            className="bg-purple-600 text-white p-6 rounded-lg hover:bg-purple-700 flex flex-col items-center"
-          >
-            <Shuffle className="h-8 w-8 mb-2" />
-            <span className="font-semibold">Draft Board</span>
-            <span className="text-sm opacity-90">Make your picks</span>
-          </button>
-          
-          <button 
-            onClick={() => setCurrentView('vote-teams')}
-            className="bg-green-600 text-white p-6 rounded-lg hover:bg-green-700 flex flex-col items-center"
-          >
-            <Vote className="h-8 w-8 mb-2" />
-            <span className="font-semibold">Vote on Teams</span>
-            <span className="text-sm opacity-90">Best collection wins</span>
-          </button>
-          
-          <button className="bg-gray-600 text-white p-6 rounded-lg hover:bg-gray-700 flex flex-col items-center">
-            <Trophy className="h-8 w-8 mb-2" />
-            <span className="font-semibold">Draft Results</span>
-            <span className="text-sm opacity-90">See all teams</span>
-          </button>
-        </div>
-      )}
-    </div>
-  );
-
-  const VotingView = () => {
-    const totalPointsUsed = getTotalPointsAssigned();
-    const remainingPoints = 10 - totalPointsUsed;
-
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <button 
-              onClick={() => setCurrentView('league')}
-              className="text-blue-600 hover:text-blue-800 mb-2"
-            >
-              ← Back to League
-            </button>
-            <h1 className="text-3xl font-bold">Vote on Round Movies</h1>
-            <p className="text-gray-600">Round: {selectedLeague?.currentRound}</p>
-          </div>
-          <div className="text-right bg-white border rounded-lg p-4">
-            <div className="text-2xl font-bold text-blue-600">{remainingPoints}</div>
-            <div className="text-sm text-gray-500">Points Remaining</div>
-            <div className="text-xs text-gray-400 mt-1">{totalPointsUsed}/10 used</div>
-          </div>
-        </div>
-
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-          <p className="text-yellow-800">
-            <strong>Movie League Voting:</strong> Distribute 10 points across all submitted movies. You can't see who submitted what until voting ends!
-          </p>
-        </div>
-
-        <div className="space-y-4">
-          {mockRoundMovies.map(movie => (
-            <div key={movie.id} className="bg-white border rounded-lg p-6">
-              <div className="flex items-start gap-4">
-                <div className="w-20 h-28 bg-gray-200 rounded-lg flex-shrink-0 flex items-center justify-center">
-                  {movie.poster_path ? (
-                    <img 
-                      src={`${TMDB_IMAGE_BASE}${movie.poster_path}`}
-                      alt={movie.title}
-                      className="w-full h-full object-cover rounded-lg"
-                      onError={(e) => {
-                        e.target.style.display = 'none';
-                        e.target.nextSibling.style.display = 'flex';
-                      }}
-                    />
-                  ) : null}
-                  <div className="text-gray-500 text-xs text-center" style={{display: movie.poster_path ? 'none' : 'flex'}}>
-                    No Image
-                  </div>
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-xl font-bold">{movie.title}</h3>
-                  <p className="text-gray-600">{new Date(movie.release_date).getFullYear()}</p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <Star className="h-4 w-4 text-yellow-500 fill-current" />
-                    <span className="text-sm text-gray-500">{movie.vote_average}/10 TMDb</span>
-                  </div>
-                  <p className="text-sm text-gray-600 mt-2">{movie.overview}</p>
-                </div>
-                <div className="flex flex-col items-end">
-                  <span className="text-sm text-gray-500 mb-2">Assign Points</span>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => {
-                        const currentPoints = userVotes[movie.id] || 0;
-                        if (currentPoints > 0) {
-                          handlePointAllocation(movie.id, currentPoints - 1);
-                        }
-                      }}
-                      disabled={(userVotes[movie.id] || 0) <= 0}
-                      className={`w-8 h-8 rounded-full border-2 flex items-center justify-center font-bold ${
-                        (userVotes[movie.id] || 0) <= 0 
-                          ? 'border-gray-200 text-gray-300 cursor-not-allowed' 
-                          : 'border-red-300 text-red-600 hover:bg-red-50 cursor-pointer'
-                      }`}
-                    >
-                      −
-                    </button>
-                    <div className="w-12 text-center">
-                      <span className="text-lg font-bold">{userVotes[movie.id] || 0}</span>
-                      <div className="text-xs text-gray-500">pts</div>
-                    </div>
-                    <button
-                      onClick={() => {
-                        const currentPoints = userVotes[movie.id] || 0;
-                        const newPoints = currentPoints + 1;
-                        const currentTotal = getTotalPointsAssigned();
-                        const wouldExceed = (currentTotal - currentPoints + newPoints) > 10;
-                        if (!wouldExceed) {
-                          handlePointAllocation(movie.id, newPoints);
-                        }
-                      }}
-                      disabled={(() => {
-                        const currentPoints = userVotes[movie.id] || 0;
-                        const newPoints = currentPoints + 1;
-                        const currentTotal = getTotalPointsAssigned();
-                        return (currentTotal - currentPoints + newPoints) > 10;
-                      })()}
-                      className={`w-8 h-8 rounded-full border-2 flex items-center justify-center font-bold ${
-                        (() => {
-                          const currentPoints = userVotes[movie.id] || 0;
-                          const newPoints = currentPoints + 1;
-                          const currentTotal = getTotalPointsAssigned();
-                          return (currentTotal - currentPoints + newPoints) > 10;
-                        })()
-                          ? 'border-gray-200 text-gray-300 cursor-not-allowed' 
-                          : 'border-green-300 text-green-600 hover:bg-green-50 cursor-pointer'
-                      }`}
-                    >
-                      +
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div className="text-center">
-          <button 
-            className={`px-8 py-3 rounded-lg font-semibold ${
-              totalPointsUsed === 10 
-                ? 'bg-green-600 text-white hover:bg-green-700' 
-                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-            }`}
-            disabled={totalPointsUsed !== 10}
-          >
-            Submit Votes {totalPointsUsed === 10 ? '' : `(${remainingPoints} points remaining)`}
-          </button>
-        </div>
-      </div>
-    );
-  };
-
-  const DraftBoardView = () => (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <button 
-            onClick={() => setCurrentView('league')}
-            className="text-purple-600 hover:text-purple-800 mb-2"
-          >
-            ← Back to League
-          </button>
-          <h1 className="text-3xl font-bold">Movie Draft Board</h1>
-          <p className="text-gray-600">Theme: {selectedLeague?.draftTheme}</p>
-        </div>
-        <div className="text-right bg-white border rounded-lg p-4">
-          <div className="text-sm text-gray-500">Current Pick</div>
-          <div className="text-2xl font-bold text-purple-600">Round {selectedLeague?.draftRound}</div>
-          <div className="text-xs text-gray-400 mt-1">Alex's turn</div>
-        </div>
-      </div>
-
-      <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-        <p className="text-purple-800">
-          <strong>Snake Draft:</strong> Players take turns picking movies. No movie can be picked twice. Build the best collection!
-        </p>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white border rounded-lg p-6">
-          <h3 className="text-lg font-bold mb-4">Draft Progress</h3>
-          <div className="space-y-4">
-            {mockDraftTeams.map(team => (
-              <div key={team.userId} className="border-l-4 border-purple-400 pl-4">
-                <h4 className="font-bold">{team.userName}</h4>
-                <div className="grid grid-cols-5 gap-2 mt-2">
-                  {team.picks.map(movie => (
-                    <div key={movie.id} className="text-center">
-                      <div className="w-12 h-16 bg-gray-200 rounded mx-auto mb-1 flex items-center justify-center">
-                        {movie.poster_path ? (
-                          <img 
-                            src={`${TMDB_IMAGE_BASE}${movie.poster_path}`}
-                            alt={movie.title}
-                            className="w-full h-full object-cover rounded"
-                          />
-                        ) : (
-                          <span className="text-xs">🎬</span>
-                        )}
-                      </div>
-                      <div className="text-xs font-semibold truncate">{movie.title}</div>
-                    </div>
-                  ))}
-                  {Array.from({length: 5 - team.picks.length}).map((_, i) => (
-                    <div key={`empty-${i}`} className="text-center">
-                      <div className="w-12 h-16 bg-gray-100 border-2 border-dashed border-gray-300 rounded mx-auto mb-1 flex items-center justify-center">
-                        <span className="text-gray-400 text-xs">?</span>
-                      </div>
-                      <div className="text-xs text-gray-400">TBD</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="bg-white border rounded-lg p-6">
-          <h3 className="text-lg font-bold mb-4">Available Movies</h3>
-          <div className="space-y-3 max-h-96 overflow-y-auto">
-            {availableDraftMovies.map(movie => (
-              <div 
-                key={movie.id} 
-                className="border rounded-lg p-3 hover:shadow-md cursor-pointer transition-all hover:border-purple-300"
-              >
-                <div className="flex items-start gap-3">
-                  <div className="w-12 h-16 bg-gray-200 rounded flex-shrink-0 flex items-center justify-center">
-                    {movie.poster_path ? (
-                      <img 
-                        src={`${TMDB_IMAGE_BASE}${movie.poster_path}`}
-                        alt={movie.title}
-                        className="w-full h-full object-cover rounded"
-                      />
-                    ) : (
-                      <span className="text-gray-500 text-lg">🎬</span>
-                    )}
-                  </div>
-                  <div className="flex-1">
-                    <h4 className="font-bold text-sm">{movie.title}</h4>
-                    <p className="text-gray-600 text-xs">{new Date(movie.release_date).getFullYear()}</p>
-                    <div className="flex items-center gap-1 mt-1">
-                      <Star className="h-3 w-3 text-yellow-500 fill-current" />
-                      <span className="text-xs text-gray-500">{movie.vote_average}/10</span>
-                    </div>
-                  </div>
-                  <button className="bg-purple-600 text-white px-3 py-1 rounded text-xs hover:bg-purple-700 font-semibold">
-                    Draft
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  const VoteTeamsView = () => {
-    const totalPointsUsed = getTotalPointsAssigned();
-    const remainingPoints = 10 - totalPointsUsed;
-
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <button 
-              onClick={() => setCurrentView('league')}
-              className="text-purple-600 hover:text-purple-800 mb-2"
-            >
-              ← Back to League
-            </button>
-            <h1 className="text-3xl font-bold">Vote on Draft Teams</h1>
-            <p className="text-gray-600">Theme: {selectedLeague?.draftTheme}</p>
-          </div>
-          <div className="text-right bg-white border rounded-lg p-4">
-            <div className="text-2xl font-bold text-purple-600">{remainingPoints}</div>
-            <div className="text-sm text-gray-500">Points Remaining</div>
-            <div className="text-xs text-gray-400 mt-1">{totalPointsUsed}/10 used</div>
-          </div>
-        </div>
-
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-          <p className="text-green-800">
-            <strong>Team Voting:</strong> Rate each team's movie collection. Distribute 10 points across all teams based on how strong you think their picks are!
-          </p>
-        </div>
-
-        <div className="space-y-6">
-          {mockDraftTeams.map(team => (
-            <div key={team.userId} className="bg-white border rounded-lg p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-bold">{team.userName}'s Team</h3>
-                <div className="flex flex-col items-end">
-                  <span className="text-sm text-gray-500 mb-2">Assign Points</span>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => {
-                        const currentPoints = userVotes[team.userId] || 0;
-                        if (currentPoints > 0) {
-                          handleTeamVote(team.userId, currentPoints - 1);
-                        }
-                      }}
-                      disabled={(userVotes[team.userId] || 0) <= 0}
-                      className={`w-8 h-8 rounded-full border-2 flex items-center justify-center font-bold ${
-                        (userVotes[team.userId] || 0) <= 0 
-                          ? 'border-gray-200 text-gray-300 cursor-not-allowed' 
-                          : 'border-red-300 text-red-600 hover:bg-red-50 cursor-pointer'
-                      }`}
-                    >
-                      −
-                    </button>
-                    <div className="w-12 text-center">
-                      <span className="text-lg font-bold">{userVotes[team.userId] || 0}</span>
-                      <div className="text-xs text-gray-500">pts</div>
-                    </div>
-                    <button
-                      onClick={() => {
-                        const currentPoints = userVotes[team.userId] || 0;
-                        const newPoints = currentPoints + 1;
-                        const currentTotal = getTotalPointsAssigned();
-                        const wouldExceed = (currentTotal - currentPoints + newPoints) > 10;
-                        if (!wouldExceed) {
-                          handleTeamVote(team.userId, newPoints);
-                        }
-                      }}
-                      disabled={(() => {
-                        const currentPoints = userVotes[team.userId] || 0;
-                        const newPoints = currentPoints + 1;
-                        const currentTotal = getTotalPointsAssigned();
-                        return (currentTotal - currentPoints + newPoints) > 10;
-                      })()}
-                      className={`w-8 h-8 rounded-full border-2 flex items-center justify-center font-bold ${
-                        (() => {
-                          const currentPoints = userVotes[team.userId] || 0;
-                          const newPoints = currentPoints + 1;
-                          const currentTotal = getTotalPointsAssigned();
-                          return (currentTotal - currentPoints + newPoints) > 10;
-                        })()
-                          ? 'border-gray-200 text-gray-300 cursor-not-allowed' 
-                          : 'border-green-300 text-green-600 hover:bg-green-50 cursor-pointer'
-                      }`}
-                    >
-                      +
-                    </button>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                {team.picks.map(movie => (
-                  <div key={movie.id} className="text-center">
-                    <div className="w-20 h-28 bg-gray-200 rounded mx-auto mb-2 flex items-center justify-center">
-                      {movie.poster_path ? (
-                        <img 
-                          src={`${TMDB_IMAGE_BASE}${movie.poster_path}`}
-                          alt={movie.title}
-                          className="w-full h-full object-cover rounded"
-                        />
-                      ) : (
-                        <span className="text-gray-500 text-lg">🎬</span>
-                      )}
-                    </div>
-                    <div className="font-semibold text-sm">{movie.title}</div>
-                    <div className="text-xs text-gray-500">{new Date(movie.release_date).getFullYear()}</div>
-                    <div className="flex items-center justify-center gap-1 mt-1">
-                      <Star className="h-3 w-3 text-yellow-500 fill-current" />
-                      <span className="text-xs text-gray-500">{movie.vote_average}/10</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div className="text-center">
-          <button 
-            className={`px-8 py-3 rounded-lg font-semibold ${
-              totalPointsUsed === 10 
-                ? 'bg-green-600 text-white hover:bg-green-700' 
-                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-            }`}
-            disabled={totalPointsUsed !== 10}
-          >
-            Submit Team Votes {totalPointsUsed === 10 ? '' : `(${remainingPoints} points remaining)`}
-          </button>
-        </div>
-      </div>
-    );
-  };
-
-  const SubmitMovieView = () => (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <button 
-            onClick={() => setCurrentView('league')}
-            className="text-blue-600 hover:text-blue-800 mb-2"
-          >
-            ← Back to League
-          </button>
-          <h1 className="text-3xl font-bold">Submit a Movie</h1>
-          <p className="text-gray-600">Round: {selectedLeague?.currentRound}</p>
-        </div>
-      </div>
-
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <p className="text-blue-800">
-          <strong>This Round's Theme:</strong> {selectedLeague?.currentRound}
-        </p>
-      </div>
-
-      <div className="bg-white border rounded-lg p-6">
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Search for a movie
-            </label>
-            <div className="relative">
-              <input 
-                type="text" 
-                placeholder="Type movie title..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && searchMovies(searchQuery)}
-                className="w-full px-4 py-2 pl-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <Search className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
-              <button 
-                onClick={() => searchMovies(searchQuery)}
-                className="absolute right-2 top-1 bg-blue-600 text-white px-4 py-1.5 rounded-md hover:bg-blue-700 text-sm"
-                disabled={isLoading}
-              >
-                {isLoading ? 'Searching...' : 'Search'}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {searchResults.length > 0 && (
-        <div className="bg-white border rounded-lg p-6">
-          <h3 className="text-lg font-bold mb-4">Search Results</h3>
-          <div className="space-y-3">
-            {searchResults.map(movie => (
-              <div 
-                key={movie.id} 
-                className="border rounded-lg p-4 hover:shadow-md cursor-pointer transition-all hover:border-blue-300"
-              >
-                <div className="flex items-start gap-4">
-                  <div className="w-16 h-20 bg-gray-200 rounded flex-shrink-0 flex items-center justify-center">
-                    {movie.poster_path ? (
-                      <img 
-                        src={`${TMDB_IMAGE_BASE}${movie.poster_path}`}
-                        alt={movie.title}
-                        className="w-full h-full object-cover rounded"
-                        onError={(e) => {
-                          e.target.style.display = 'none';
-                          e.target.nextSibling.style.display = 'block';
-                        }}
-                      />
-                    ) : null}
-                    <div className="text-gray-500 text-lg" style={{display: movie.poster_path ? 'none' : 'block'}}>
-                      🎬
-                    </div>
-                  </div>
-                  <div className="flex-1">
-                    <h4 className="font-bold text-lg">{movie.title}</h4>
-                    <p className="text-gray-600">{new Date(movie.release_date).getFullYear()}</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <Star className="h-4 w-4 text-yellow-500 fill-current" />
-                      <span className="text-sm text-gray-500">{movie.vote_average}/10 TMDb</span>
-                    </div>
-                    <p className="text-sm text-gray-600 mt-2">{movie.overview}</p>
-                  </div>
-                  <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-semibold">
-                    Submit This Movie
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {searchQuery && searchResults.length === 0 && !isLoading && (
-        <div className="text-center py-8 text-gray-500">
-          No movies found for "{searchQuery}". Try a different search term.
-        </div>
-      )}
-    </div>
-  );
-
-  const CreateLeagueView = () => (
-    <div className="space-y-6">
-      <div>
-        <button 
-          onClick={() => setCurrentView('splash')}
-          className="text-blue-600 hover:text-blue-800 mb-2"
-        >
-          ← Back to All Leagues
-        </button>
-        <h1 className="text-3xl font-bold">Create New League</h1>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <div className="bg-white border-2 border-blue-200 rounded-lg p-6 hover:border-blue-400 cursor-pointer transition-colors">
-          <div className="text-center">
-            <Target className="mx-auto h-16 w-16 text-blue-600 mb-4" />
-            <h3 className="text-2xl font-bold text-blue-900 mb-4">Movie League</h3>
-            <p className="text-gray-600 mb-6">Theme-based rounds where everyone submits movies anonymously, then votes on the best submissions.</p>
+        function showLeague(type) {
+            document.getElementById('splash-view').classList.add('hidden');
+            document.getElementById('league-view').classList.remove('hidden');
+            document.getElementById('create-league-view').classList.add('hidden');
             
-            <div className="space-y-4 text-left">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">League Name</label>
-                <input type="text" placeholder="Enter league name..." className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                <textarea placeholder="Describe your league..." className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 h-16 resize-none" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">First Round Theme</label>
-                <input type="text" placeholder="e.g., Best Action Movie Under 2 Hours" className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Total Rounds</label>
-                <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                  <option>6 rounds</option>
-                  <option>8 rounds</option>
-                  <option>10 rounds</option>
-                  <option>12 rounds</option>
-                </select>
-              </div>
-              <button className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 font-semibold">
-                Create Movie League
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white border-2 border-purple-200 rounded-lg p-6 hover:border-purple-400 cursor-pointer transition-colors">
-          <div className="text-center">
-            <Shuffle className="mx-auto h-16 w-16 text-purple-600 mb-4" />
-            <h3 className="text-2xl font-bold text-purple-900 mb-4">Movie Draft</h3>
-            <p className="text-gray-600 mb-6">Snake draft where players take turns picking movies for their collection. No duplicates allowed!</p>
+            const actions = document.getElementById('league-actions');
             
-            <div className="space-y-4 text-left">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">League Name</label>
-                <input type="text" placeholder="Enter league name..." className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                <textarea placeholder="Describe your draft..." className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 h-16 resize-none" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Draft Theme</label>
-                <input type="text" placeholder="e.g., Greatest Films of All Time" className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Movies per Team</label>
-                <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500">
-                  <option>3 movies</option>
-                  <option>5 movies</option>
-                  <option>7 movies</option>
-                  <option>10 movies</option>
-                </select>
-              </div>
-              <button className="w-full bg-purple-600 text-white py-3 rounded-lg hover:bg-purple-700 font-semibold">
-                Create Movie Draft
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+            if (type === 'movie-league') {
+                actions.innerHTML = `
+                    <div class="action-card bg-blue" onclick="alert('Submit movie feature (Demo)')">
+                        <svg class="action-icon" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 5v14m7-7H5"/>
+                        </svg>
+                        <div class="action-title">Submit Movie</div>
+                        <div class="action-subtitle">Add to current round</div>
+                    </div>
+                    <div class="action-card bg-green" onclick="alert('Voting feature (Demo)')">
+                        <svg class="action-icon" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        <div class="action-title">Vote on Movies</div>
+                        <div class="action-subtitle">4 submissions</div>
+                    </div>
+                    <div class="action-card bg-gray" onclick="alert('Leaderboard feature (Demo)')">
+                        <svg class="action-icon" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        <div class="action-title">Leaderboard</div>
+                        <div class="action-subtitle">Season standings</div>
+                    </div>
+                `;
+            } else {
+                document.getElementById('league-type-text').textContent = 'Movie Draft';
+                document.getElementById('league-name').textContent = 'Ultimate Movie Draft 2024';
+                document.getElementById('league-description').textContent = 'Snake draft - build the ultimate movie collection';
+                document.getElementById('current-round').textContent = 'Greatest Films of All Time';
+                
+                actions.innerHTML = `
+                    <div class="action-card bg-purple" onclick="alert('Draft board feature (Demo)')">
+                        <svg class="action-icon" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z"/>
+                        </svg>
+                        <div class="action-title">Draft Board</div>
+                        <div class="action-subtitle">Make your picks</div>
+                    </div>
+                    <div class="action-card bg-green" onclick="alert('Vote on teams feature (Demo)')">
+                        <svg class="action-icon" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        <div class="action-title">Vote on Teams</div>
+                        <div class="action-subtitle">Best collection wins</div>
+                    </div>
+                    <div class="action-card bg-gray" onclick="alert('Draft results feature (Demo)')">
+                        <svg class="action-icon" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        <div class="action-title">Draft Results</div>
+                        <div class="action-subtitle">See all teams</div>
+                    </div>
+                `;
+            }
+        }
 
-  // Render current view
-  const renderCurrentView = () => {
-    switch(currentView) {
-      case 'splash': return <SplashView />;
-      case 'league': return <LeagueView />;
-      case 'voting': return <VotingView />;
-      case 'draft-board': return <DraftBoardView />;
-      case 'vote-teams': return <VoteTeamsView />;
-      case 'submit': return <SubmitMovieView />;
-      case 'create-league': return <CreateLeagueView />;
-      default: return <SplashView />;
-    }
-  };
-
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        {renderCurrentView()}
-      </div>
-    </div>
-  );
-};
-
-export default MovieLeagueApp;
+        function showCreateLeague() {
+            document.getElementById('splash-view').classList.add('hidden');
+            document.getElementById('league-view').classList.add('hidden');
+            document.getElementById('create-league-view').classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
